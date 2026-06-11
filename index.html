@@ -1,0 +1,865 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Wegwijs – Een week op stap met AI</title>
+<style>
+  :root{
+    --inkt:#22313a;
+    --petrol:#0d5c63;
+    --petrol-donker:#08434a;
+    --amber:#e8a13c;
+    --amber-licht:#fdf3e3;
+    --papier:#f5f3ee;
+    --kaart:#ffffff;
+    --groen:#2e7d4f;
+    --groen-licht:#e9f5ee;
+    --rood:#b6452c;
+    --rood-licht:#fbeeea;
+    --lijn:#d8d4cb;
+    --basis:18px;
+    --radius:14px;
+  }
+  [data-tekst="groot"]{ --basis:21px; }
+  [data-tekst="extragroot"]{ --basis:24px; }
+
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  html{ font-size:var(--basis); }
+  body{
+    font-family:"Nunito","Segoe UI",system-ui,-apple-system,sans-serif;
+    background:var(--papier);
+    color:var(--inkt);
+    line-height:1.6;
+    min-height:100vh;
+  }
+  button{ font-family:inherit; cursor:pointer; }
+  button:focus-visible, a:focus-visible{ outline:3px solid var(--amber); outline-offset:3px; }
+
+  .schil{ max-width:760px; margin:0 auto; padding:1.2rem 1rem 4rem; }
+
+  /* ---------- Topbalk ---------- */
+  .topbalk{
+    display:flex; align-items:center; justify-content:space-between;
+    gap:1rem; padding:.6rem 0 1rem;
+  }
+  .logo{ font-weight:800; font-size:1.05rem; color:var(--petrol); letter-spacing:.3px; }
+  .logo span{ color:var(--amber); }
+  .tekstknoppen{ display:flex; gap:.4rem; align-items:center; }
+  .tekstknoppen button{
+    border:2px solid var(--petrol); background:var(--kaart); color:var(--petrol);
+    border-radius:9px; padding:.15rem .55rem; font-weight:800;
+  }
+  .tekstknoppen button[aria-pressed="true"]{ background:var(--petrol); color:#fff; }
+  .tekstknoppen .tA1{ font-size:.85rem; } .tekstknoppen .tA2{ font-size:1rem; } .tekstknoppen .tA3{ font-size:1.15rem; }
+
+  /* ---------- Weekpad (signatuur) ---------- */
+  .weekpad{ margin:0 0 1.4rem; }
+  .pad-rij{ display:flex; align-items:center; }
+  .halte{ display:flex; flex-direction:column; align-items:center; gap:.3rem; min-width:3.2rem; }
+  .halte .bol{
+    width:2.4rem; height:2.4rem; border-radius:50%;
+    border:3px solid var(--lijn); background:var(--kaart);
+    display:flex; align-items:center; justify-content:center;
+    font-size:1.1rem; transition:all .3s ease;
+  }
+  .halte .dagnaam{ font-size:.7rem; font-weight:800; color:#8a857a; text-transform:uppercase; letter-spacing:.5px; }
+  .halte.actief .bol{ border-color:var(--amber); background:var(--amber-licht); transform:scale(1.12); box-shadow:0 3px 10px rgba(232,161,60,.35); }
+  .halte.actief .dagnaam{ color:var(--petrol); }
+  .halte.klaar .bol{ border-color:var(--groen); background:var(--groen-licht); }
+  .halte.klaar .dagnaam{ color:var(--groen); }
+  .tussenpad{ flex:1; height:6px; background:var(--lijn); border-radius:3px; position:relative; overflow:hidden; margin:0 .3rem; margin-bottom:1.3rem; }
+  .tussenpad .vulling{ position:absolute; inset:0; width:0%; background:linear-gradient(90deg,var(--petrol),var(--groen)); border-radius:3px; transition:width .6s ease; }
+
+  /* ---------- Kaarten ---------- */
+  .kaart{
+    background:var(--kaart); border:1px solid var(--lijn); border-radius:var(--radius);
+    padding:1.6rem 1.5rem; box-shadow:0 2px 14px rgba(34,49,58,.06);
+  }
+  .dagkop{ display:flex; align-items:center; gap:.7rem; margin-bottom:1rem; }
+  .dagkop .icoon{ font-size:1.8rem; }
+  .dagkop h2{ font-size:1.25rem; color:var(--petrol-donker); line-height:1.3; }
+  .dagkop .sub{ font-size:.85rem; color:#6f6a5f; font-weight:700; text-transform:uppercase; letter-spacing:.6px; }
+
+  .situatie{
+    background:var(--papier); border-left:5px solid var(--petrol);
+    border-radius:0 10px 10px 0; padding:.9rem 1.1rem; margin-bottom:1.2rem;
+  }
+  .vraag{ font-weight:800; font-size:1.08rem; margin-bottom:1rem; }
+
+  .antwoorden{ display:flex; flex-direction:column; gap:.7rem; }
+  .antwoord{
+    text-align:left; width:100%; border:2px solid var(--lijn); background:var(--kaart);
+    border-radius:12px; padding:.95rem 1.1rem; font-size:1rem; line-height:1.5;
+    display:flex; gap:.7rem; align-items:flex-start; transition:border-color .15s, background .15s;
+  }
+  .antwoord .letter{
+    flex:none; width:1.7rem; height:1.7rem; border-radius:50%;
+    background:var(--petrol); color:#fff; font-weight:800; font-size:.85rem;
+    display:flex; align-items:center; justify-content:center; margin-top:.1rem;
+  }
+  .antwoord:hover:not(:disabled){ border-color:var(--petrol); background:#f4fafa; }
+  .antwoord:disabled{ opacity:.45; cursor:not-allowed; }
+  .antwoord.juist{ border-color:var(--groen); background:var(--groen-licht); }
+  .antwoord.juist .letter{ background:var(--groen); }
+  .antwoord.fout{ border-color:var(--rood); background:var(--rood-licht); }
+  .antwoord.fout .letter{ background:var(--rood); }
+
+  /* ---------- Coach ---------- */
+  .coach{
+    display:flex; gap:.9rem; margin-top:1.2rem; padding:1rem 1.1rem;
+    border-radius:12px; align-items:flex-start; animation:opkomen .35s ease;
+  }
+  .coach.helpt{ background:var(--amber-licht); border:2px solid var(--amber); }
+  .coach.prijst{ background:var(--groen-licht); border:2px solid var(--groen); }
+  .coach .gezicht{ font-size:2rem; flex:none; }
+  .coach .naam{ font-weight:800; font-size:.8rem; text-transform:uppercase; letter-spacing:.6px; margin-bottom:.2rem; }
+  .coach.helpt .naam{ color:#9a6a1c; }
+  .coach.prijst .naam{ color:var(--groen); }
+  .coach .tip-echt{
+    margin-top:.6rem; padding:.55rem .8rem; background:#fff; border-radius:8px;
+    font-size:.92rem; border:1px dashed var(--lijn);
+  }
+  .coach .tip-echt strong{ color:var(--petrol); }
+  @keyframes opkomen{ from{ opacity:0; transform:translateY(8px);} to{ opacity:1; transform:none;} }
+  @media (prefers-reduced-motion: reduce){
+    *{ animation:none !important; transition:none !important; }
+  }
+
+  .hintknop{
+    margin-top:1rem; background:none; border:2px dashed var(--petrol); color:var(--petrol);
+    border-radius:10px; padding:.5rem .9rem; font-weight:700; font-size:.92rem;
+  }
+  .hintknop:hover{ background:#f4fafa; }
+
+  /* ---------- Hoofdknoppen ---------- */
+  .hoofdknop{
+    display:inline-flex; align-items:center; gap:.5rem;
+    background:var(--petrol); color:#fff; border:none; border-radius:12px;
+    padding:.85rem 1.6rem; font-size:1.05rem; font-weight:800;
+    box-shadow:0 3px 0 var(--petrol-donker); margin-top:1.3rem;
+  }
+  .hoofdknop:hover{ background:var(--petrol-donker); }
+  .hoofdknop:active{ transform:translateY(2px); box-shadow:none; }
+  .hoofdknop.amber{ background:var(--amber); color:var(--inkt); box-shadow:0 3px 0 #c07f1f; }
+  .hoofdknop.amber:hover{ background:#d6912e; }
+
+  /* ---------- Start ---------- */
+  .start-held{ text-align:center; padding:2rem 0 1rem; }
+  .start-held .groot-icoon{ font-size:3.4rem; }
+  .start-held h1{ font-size:2rem; color:var(--petrol-donker); line-height:1.2; margin:.6rem 0 .4rem; }
+  .start-held .onder{ font-size:1.1rem; color:#5a554a; max-width:34rem; margin:0 auto; }
+  .veld{ margin-top:1.4rem; text-align:left; }
+  .veld label{ display:block; font-weight:800; margin-bottom:.4rem; }
+  .veld input{
+    width:100%; font-family:inherit; font-size:1.05rem; padding:.8rem 1rem;
+    border:2px solid var(--lijn); border-radius:12px; background:var(--kaart);
+  }
+  .veld input:focus{ outline:none; border-color:var(--petrol); }
+  .tempo{ display:flex; flex-direction:column; gap:.6rem; margin-top:.4rem; }
+  .tempo button{
+    text-align:left; border:2px solid var(--lijn); background:var(--kaart);
+    border-radius:12px; padding:.8rem 1rem; font-size:.98rem;
+  }
+  .tempo button strong{ display:block; }
+  .tempo button[aria-pressed="true"]{ border-color:var(--petrol); background:#eef7f7; }
+
+  /* ---------- Dagstart & dagafsluiting ---------- */
+  .dag-intro .groot-icoon, .badgemoment .groot-icoon{ font-size:3rem; }
+  .badgemoment{ text-align:center; }
+  .badge-schild{
+    width:7.5rem; height:7.5rem; margin:1rem auto; border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, #fff 0%, var(--amber-licht) 55%, var(--amber) 130%);
+    border:4px solid var(--amber); display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:.1rem;
+    box-shadow:0 6px 18px rgba(232,161,60,.4);
+    animation:badgepop .5s ease;
+  }
+  @keyframes badgepop{ from{ transform:scale(.5); opacity:0;} to{ transform:scale(1); opacity:1;} }
+  .badge-schild .b-icoon{ font-size:2.2rem; }
+  .badge-naam{ font-weight:800; color:var(--petrol-donker); font-size:1.15rem; }
+  .reflectie{
+    margin-top:1.3rem; text-align:left; background:var(--papier);
+    border-radius:12px; padding:1rem 1.1rem; border:1px solid var(--lijn);
+  }
+  .reflectie .r-kop{ font-weight:800; color:var(--petrol); font-size:.85rem; text-transform:uppercase; letter-spacing:.5px; margin-bottom:.3rem; }
+
+  /* ---------- Einde ---------- */
+  .scorebalken{ display:flex; flex-direction:column; gap:1rem; margin:1.4rem 0; }
+  .scorebalk .s-label{ display:flex; justify-content:space-between; font-weight:800; font-size:.95rem; margin-bottom:.3rem; }
+  .scorebalk .s-spoor{ height:14px; background:var(--papier); border:1px solid var(--lijn); border-radius:7px; overflow:hidden; }
+  .scorebalk .s-vulling{ height:100%; border-radius:7px; background:linear-gradient(90deg,var(--petrol),var(--groen)); width:0%; transition:width 1s ease .3s; }
+  .badge-rij{ display:flex; flex-wrap:wrap; gap:.8rem; justify-content:center; margin:1rem 0; }
+  .mini-badge{
+    display:flex; align-items:center; gap:.45rem; background:var(--amber-licht);
+    border:2px solid var(--amber); border-radius:999px; padding:.35rem .9rem; font-weight:800; font-size:.9rem;
+  }
+  .mini-badge.niet{ opacity:.35; filter:grayscale(1); }
+
+  /* ---------- Certificaat ---------- */
+  .certificaat{
+    border:4px double var(--petrol); border-radius:10px; padding:1.8rem 1.4rem;
+    text-align:center; margin-top:1.4rem; background:#fffdf8;
+  }
+  .certificaat .c-kop{ font-size:.8rem; letter-spacing:2px; text-transform:uppercase; color:var(--amber); font-weight:800; }
+  .certificaat h3{ font-size:1.5rem; color:var(--petrol-donker); margin:.4rem 0; }
+  .certificaat .c-naam{ font-size:1.6rem; font-weight:800; margin:.6rem 0 .2rem; }
+  .certificaat .c-lijn{ width:60%; margin:0 auto .8rem; border-bottom:2px solid var(--lijn); }
+  .certificaat .c-detail{ color:#5a554a; font-size:.95rem; }
+
+  @media print{
+    body *{ visibility:hidden; }
+    .certificaat, .certificaat *{ visibility:visible; }
+    .certificaat{ position:absolute; left:0; top:0; width:100%; border-color:#000; }
+  }
+
+  .verborgen{ display:none !important; }
+  .klein-grijs{ font-size:.85rem; color:#7a7569; margin-top:.8rem; }
+  .puntenmelding{
+    position:fixed; top:1rem; right:1rem; background:var(--groen); color:#fff;
+    font-weight:800; padding:.4rem .9rem; border-radius:999px; box-shadow:0 4px 12px rgba(0,0,0,.2);
+    animation:opkomen .3s ease; z-index:50;
+  }
+</style>
+</head>
+<body data-tekst="normaal">
+<div class="schil">
+
+  <div class="topbalk">
+    <div class="logo">AI <span>Wegwijs</span></div>
+    <div class="tekstknoppen" role="group" aria-label="Tekstgrootte">
+      <button class="tA1" data-grootte="normaal" aria-pressed="true" title="Normale tekst">A</button>
+      <button class="tA2" data-grootte="groot" aria-pressed="false" title="Grote tekst">A</button>
+      <button class="tA3" data-grootte="extragroot" aria-pressed="false" title="Extra grote tekst">A</button>
+    </div>
+  </div>
+
+  <div class="weekpad verborgen" id="weekpad" aria-label="Voortgang door de week">
+    <div class="pad-rij" id="padRij"></div>
+  </div>
+
+  <main id="scherm"></main>
+
+</div>
+
+<script>
+"use strict";
+
+/* =====================================================
+   SPELGEGEVENS
+   Elke dag = 1 level. Elke vraag heeft:
+   - competentie: probleem | kritisch | veilig | effectief
+   - antwoorden: precies 1 juist, met uitleg per antwoord
+   - hint: hulp vóór of na een fout antwoord
+   - tip: praktische tip voor het echte leven (na juist antwoord)
+===================================================== */
+
+const COMPETENTIES = {
+  probleem:  { naam:"Probleemoplossend vermogen", icoon:"🧩" },
+  kritisch:  { naam:"Kritisch denken",            icoon:"🔎" },
+  veilig:    { naam:"Veilig gebruik van AI",      icoon:"🛡️" },
+  effectief: { naam:"Effectief gebruik van AI",   icoon:"🎯" }
+};
+
+const LEVELS = [
+{
+  dag:"Maandag", icoon:"✉️", titel:"Een moeilijke brief",
+  intro:"Je vindt een brief van de mutualiteit in je brievenbus. De brief staat vol moeilijke woorden. Je begrijpt niet goed wat je moet doen.",
+  badge:{ naam:"AI-Assistent", icoon:"🤝" },
+  reflectie:"Welke moeilijke brief of e-mail zou jij deze week met hulp van AI willen begrijpen?",
+  vragen:[
+    {
+      situatie:"Je leest de brief twee keer, maar je begrijpt hem nog steeds niet. Op tafel ligt je smartphone met een AI-hulpmiddel, zoals een chatbot.",
+      vraag:"Wat is een goede eerste stap?",
+      competentie:"effectief",
+      hint:"AI is goed in het eenvoudiger maken van moeilijke teksten. Je mag AI gewoon om uitleg vragen, in je eigen woorden.",
+      tip:"Dit werkt ook met brieven van de overheid, het ziekenfonds of je energieleverancier. Typ of fotografeer de tekst en vraag om uitleg in eenvoudige taal.",
+      antwoorden:[
+        { tekst:"Ik leg de brief weg. Als het belangrijk is, sturen ze wel een nieuwe.", juist:false,
+          uitleg:"Dat is riskant. Sommige brieven hebben een einddatum. Als je niet reageert, kan je geld of rechten verliezen." },
+        { tekst:"Ik typ de tekst in het AI-hulpmiddel en vraag: \u201cLeg deze brief uit in eenvoudige taal.\u201d", juist:true,
+          uitleg:"Goed gekozen! AI kan moeilijke teksten samenvatten en uitleggen in gewone woorden. Zo begrijp je snel waar het over gaat." },
+        { tekst:"Ik betaal meteen het bedrag dat in de brief staat, dan ben ik er vanaf.", juist:false,
+          uitleg:"Betaal nooit iets dat je niet begrijpt. Misschien moet je helemaal niet betalen, of klopt het bedrag niet." }
+      ]
+    },
+    {
+      situatie:"Je wil de brief aan AI laten uitleggen. Maar in de brief staan ook je naam, je adres en je rijksregisternummer.",
+      vraag:"Wat doe je met die persoonlijke gegevens?",
+      competentie:"veilig",
+      hint:"Een AI-hulpmiddel heeft je persoonlijke nummers niet nodig om de tekst uit te leggen.",
+      tip:"Maak er een gewoonte van: haal namen, adressen en nummers uit een tekst voor je hem met AI deelt. De uitleg blijft even goed.",
+      antwoorden:[
+        { tekst:"Ik laat alles staan. Zo'n hulpmiddel doet daar toch niets mee.", juist:false,
+          uitleg:"Niet doen. Je weet nooit zeker wat er met je gegevens gebeurt. Je rijksregisternummer is heel persoonlijk en kan misbruikt worden." },
+        { tekst:"Ik laat mijn naam en rijksregisternummer weg en deel alleen de tekst van de brief.", juist:true,
+          uitleg:"Heel goed! AI heeft je persoonlijke gegevens niet nodig om de tekst uit te leggen. Zo bescherm je je privacy." },
+        { tekst:"Ik durf de brief nu helemaal niet meer te gebruiken met AI.", juist:false,
+          uitleg:"Dat hoeft niet. Je kan AI veilig gebruiken als je je persoonlijke gegevens gewoon weglaat. Dan blijft de hulp even goed." }
+      ]
+    },
+    {
+      situatie:"De AI legt uit: \u201cU moet dit formulier vóór 1 juli terugsturen, anders verliest u uw tegemoetkoming.\u201d Dat klinkt duidelijk, maar je wil zeker zijn.",
+      vraag:"Hoe controleer je of dit klopt?",
+      competentie:"kritisch",
+      hint:"AI maakt soms fouten, ook met datums. Waar staat de juiste informatie zeker in?",
+      tip:"Belangrijke datums, bedragen en namen controleer je altijd in het originele document of bij de organisatie zelf.",
+      antwoorden:[
+        { tekst:"Ik vertrouw de AI. Computers maken geen fouten met datums.", juist:false,
+          uitleg:"AI maakt wél fouten, ook met datums en bedragen. Soms verzint AI zelfs dingen die er niet staan. Controleren is altijd nodig." },
+        { tekst:"Ik zoek de datum op in de brief zelf. Bij twijfel bel ik naar de mutualiteit.", juist:true,
+          uitleg:"Precies! De brief zelf is de echte bron. AI helpt je begrijpen, maar belangrijke details controleer je altijd in het origineel." },
+        { tekst:"Ik vraag het aan een andere AI. Als twee AI's hetzelfde zeggen, klopt het zeker.", juist:false,
+          uitleg:"Twee AI's kunnen dezelfde fout maken. De brief zelf en de mutualiteit zijn de betrouwbare bronnen, niet een tweede chatbot." }
+      ]
+    }
+  ]
+},
+{
+  dag:"Dinsdag", icoon:"🚆", titel:"Een uitstap plannen",
+  intro:"Je wil dit weekend met een vriendin naar zee. Jullie hebben samen 150 euro. Je wil AI gebruiken om de uitstap te plannen.",
+  badge:{ naam:"Slimme Promptschrijver", icoon:"✍️" },
+  reflectie:"Wat zou jij binnenkort willen plannen? Welke informatie zou je dan aan AI geven?",
+  vragen:[
+    {
+      situatie:"Je opent het AI-hulpmiddel en wil je vraag typen.",
+      vraag:"Welke vraag geeft het beste antwoord?",
+      competentie:"effectief",
+      hint:"Hoe meer je vertelt over wat je wil (budget, wanneer, met wie, wat je graag doet), hoe beter AI je kan helpen.",
+      tip:"Een goede vraag aan AI bevat: wat je wil, voor wie, wanneer en met welk budget. Net zoals je het aan een behulpzame buur zou vertellen.",
+      antwoorden:[
+        { tekst:"\u201cUitstap?\u201d", juist:false,
+          uitleg:"Dit is te kort. AI weet nu niet waar je heen wil, met hoeveel mensen, of wat je budget is. Je krijgt een vaag antwoord." },
+        { tekst:"\u201cPlan een leuk weekend voor mij.\u201d", juist:false,
+          uitleg:"Al iets beter, maar nog te vaag. AI kent je budget niet en weet niet waar je heen wil. Geef meer informatie." },
+        { tekst:"\u201cPlan een dagje aan de Belgische kust voor 2 personen, zaterdag, met de trein vanuit Brussel, budget 150 euro in totaal.\u201d", juist:true,
+          uitleg:"Uitstekende vraag! Je geeft AI alles wat het nodig heeft: bestemming, aantal personen, dag, vervoer en budget. Zo krijg je een bruikbaar plan." }
+      ]
+    },
+    {
+      situatie:"AI stelt een plan voor met een restaurant van 60 euro per persoon. Dat past niet in jullie budget van 150 euro in totaal.",
+      vraag:"Wat doe je?",
+      competentie:"probleem",
+      hint:"Een gesprek met AI mag een echt gesprek zijn. Je hoeft het eerste antwoord niet te aanvaarden.",
+      tip:"Vraag gerust door: \u201cmaak het goedkoper\u201d, \u201cgeef drie andere opties\u201d, \u201cmaak het korter\u201d. AI past het antwoord meteen aan.",
+      antwoorden:[
+        { tekst:"Ik stop ermee. AI begrijpt mij toch niet.", juist:false,
+          uitleg:"Niet opgeven! Het eerste antwoord is zelden perfect. Je mag AI vragen om het plan aan te passen, zo vaak je wil." },
+        { tekst:"Ik typ: \u201cDat restaurant is te duur. Geef goedkopere opties, maximaal 20 euro per persoon.\u201d", juist:true,
+          uitleg:"Heel goed! Doorvragen is de kracht van AI. Je zegt wat er niet past en wat je wél wil. AI past het plan meteen aan." },
+        { tekst:"Ik boek het dure restaurant toch maar. AI zal wel weten wat goed is.", juist:false,
+          uitleg:"Jij beslist, niet de AI. Als iets niet past bij jouw budget of wensen, vraag je gewoon om een ander voorstel." }
+      ]
+    },
+    {
+      situatie:"In het plan staat: \u201cHet museum aan zee is op zaterdag gratis.\u201d Dat zou mooi meegenomen zijn.",
+      vraag:"Geloof je dat zomaar?",
+      competentie:"kritisch",
+      hint:"AI-informatie kan verouderd of fout zijn. Waar vind je de actuele openingsuren en prijzen?",
+      tip:"Praktische informatie zoals prijzen, uren en dienstregelingen controleer je op de officiële website of via een telefoontje.",
+      antwoorden:[
+        { tekst:"Ja, anders zou AI het niet zeggen.", juist:false,
+          uitleg:"AI gebruikt soms verouderde informatie of vergist zich. Misschien was het museum vroeger gratis, maar nu niet meer." },
+        { tekst:"Nee, ik kijk even op de website van het museum zelf.", juist:true,
+          uitleg:"Slim! De officiële website heeft de actuele prijzen en openingsuren. Zo sta je zaterdag niet voor een verrassing." },
+        { tekst:"Ik vraag aan AI: \u201cBen je zeker?\u201d Als AI ja zegt, is het in orde.", juist:false,
+          uitleg:"AI klinkt bijna altijd zelfzeker, ook als het fout zit. \u201cBen je zeker?\u201d is geen echte controle. Kijk op de officiële website." }
+      ]
+    }
+  ]
+},
+{
+  dag:"Woensdag", icoon:"💼", titel:"Werk zoeken",
+  intro:"Je ziet een vacature voor logistiek medewerker in een magazijn dicht bij huis. De job lijkt je echt iets. Je wil solliciteren, maar je cv is verouderd.",
+  badge:{ naam:"Kritische Denker", icoon:"🧠" },
+  reflectie:"Voor welke tekst van jezelf (cv, e-mail, aanvraag) zou AI jou kunnen helpen, zonder dat AI het van je overneemt?",
+  vragen:[
+    {
+      situatie:"Je wil AI gebruiken om je cv op te frissen.",
+      vraag:"Hoe pak je dat het beste aan?",
+      competentie:"effectief",
+      hint:"AI kan alleen goed helpen met informatie die jij zelf geeft. Jouw echte ervaring is het vertrekpunt.",
+      tip:"Geef AI je echte gegevens en vraag om ze helder te ordenen. AI is sterk in structuur en formulering, jij levert de inhoud.",
+      antwoorden:[
+        { tekst:"Ik vraag: \u201cMaak een cv voor een logistiek medewerker.\u201d AI vult de rest wel in.", juist:false,
+          uitleg:"Dan verzint AI een cv van iemand die niet bestaat. Dat is niet jouw cv, en bij een gesprek val je door de mand." },
+        { tekst:"Ik som mijn echte jobs, opleidingen en vaardigheden op en vraag AI om daar een net cv van te maken.", juist:true,
+          uitleg:"Perfect! Jij levert de echte inhoud, AI zorgt voor een heldere structuur en goede formulering. Zo blijft het jouw verhaal." },
+        { tekst:"Ik kopieer het cv van iemand anders en laat AI de naam veranderen.", juist:false,
+          uitleg:"Dat is niet eerlijk en het klopt niet met jouw ervaring. Een werkgever merkt dat snel. Vertrek altijd van je eigen gegevens." }
+      ]
+    },
+    {
+      situatie:"AI schrijft een motivatiebrief voor je. De brief klinkt mooi, maar een beetje stijf en algemeen. Hij zou van iedereen kunnen zijn.",
+      vraag:"Wat doe je met die brief?",
+      competentie:"probleem",
+      hint:"AI geeft je een goed begin. Wat kan jij toevoegen dat geen enkele AI over jou weet?",
+      tip:"Gebruik AI-teksten als eerste versie. Voeg altijd iets persoonlijks toe: een echt voorbeeld, jouw woorden, jouw reden.",
+      antwoorden:[
+        { tekst:"Ik stuur de brief meteen door. Hij klinkt toch professioneel.", juist:false,
+          uitleg:"Werkgevers herkennen algemene AI-brieven snel. Zonder iets persoonlijks valt jouw brief niet op tussen de andere." },
+        { tekst:"Ik lees de brief na, zet hem in mijn eigen woorden en voeg een echt voorbeeld toe, zoals mijn ervaring met de heftruck.", juist:true,
+          uitleg:"Heel sterk! De brief blijft van jou. Jouw eigen woorden en een echt voorbeeld maken het verschil bij een werkgever." },
+        { tekst:"Ik gooi de brief weg. Een brief van AI mag je nooit gebruiken.", juist:false,
+          uitleg:"Zo streng hoeft het niet. AI gebruiken als hulpmiddel mag. De kunst is: zelf nalezen, aanpassen en er jouw verhaal van maken." }
+      ]
+    },
+    {
+      situatie:"Je leest het cv dat AI maakte nog eens goed na. Er staat plots: \u201cDiploma logistiek management, 2019\u201d. Dat diploma heb je helemaal niet.",
+      vraag:"Wat doe je?",
+      competentie:"kritisch",
+      hint:"AI verzint soms dingen die goed klinken maar niet waar zijn. Wat zijn de gevolgen als dit in je cv blijft staan?",
+      tip:"Lees alles wat AI over jou schrijft woord voor woord na. AI kan feiten verzinnen, dat heet ook wel \u201challucineren\u201d.",
+      antwoorden:[
+        { tekst:"Ik laat het staan. Het maakt mijn cv sterker en niemand controleert dat toch.", juist:false,
+          uitleg:"Dat is liegen op je cv, en werkgevers controleren diploma's wél. Je kan er je job mee verliezen, zelfs achteraf nog." },
+        { tekst:"Ik haal het weg. AI heeft dit verzonnen en het moet kloppen wat in mijn cv staat.", juist:true,
+          uitleg:"Juist! AI verzint soms dingen die goed klinken. Jij blijft verantwoordelijk voor wat je verstuurt, dus alles moet waar zijn." },
+        { tekst:"Ik vraag aan AI of het mag blijven staan. AI weet wat in een cv hoort.", juist:false,
+          uitleg:"AI kan niet weten wat waar is over jou, en jij blijft verantwoordelijk. Alles in je cv moet kloppen, dat beslis jij." }
+      ]
+    }
+  ]
+},
+{
+  dag:"Donderdag", icoon:"📱", titel:"Nep of echt?",
+  intro:"Je scrolt 's avonds op je telefoon. Je ziet foto's, berichten en video's. Sommige zijn echt, sommige zijn gemaakt of aangepast met AI.",
+  badge:{ naam:"Factchecker", icoon:"🔍" },
+  reflectie:"Welk bericht of welke foto heb jij onlangs gezien waar je achteraf aan twijfelde?",
+  vragen:[
+    {
+      situatie:"Je ziet een spectaculaire foto: een bekende politicus die op straat in een fontein springt. Het bericht heeft duizenden reacties.",
+      vraag:"Hoe ga je na of de foto echt is?",
+      competentie:"kritisch",
+      hint:"Veel likes zegt niets over echtheid. Wie zou hierover berichten als het echt gebeurd was?",
+      tip:"Groot nieuws staat altijd op meerdere betrouwbare nieuwssites, zoals VRT NWS of een krant. Vind je het daar niet? Wees dan extra voorzichtig.",
+      antwoorden:[
+        { tekst:"Met zoveel reacties moet het wel echt zijn.", juist:false,
+          uitleg:"Veel reacties bewijzen niets. Nepfoto's verspreiden zich juist heel snel, omdat ze spectaculair zijn." },
+        { tekst:"Ik kijk of betrouwbare nieuwssites, zoals VRT NWS of een krant, hierover berichten.", juist:true,
+          uitleg:"Heel goed! Als iets echt gebeurd is, vind je het op meerdere betrouwbare nieuwssites. Staat het nergens? Dan is het waarschijnlijk nep." },
+        { tekst:"De foto ziet er scherp en realistisch uit, dus hij is echt.", juist:false,
+          uitleg:"AI maakt tegenwoordig foto's die bijna perfect echt lijken. Aan de kwaliteit alleen kan je het niet meer zien." }
+      ]
+    },
+    {
+      situatie:"Een kennis stuurt je een bericht door: \u201cDOORSTUREN! Dokters verzwijgen het: bananen genezen de griep in één dag!\u201d",
+      vraag:"Wat doe je?",
+      competentie:"kritisch",
+      hint:"Berichten die schreeuwen om gedeeld te worden, willen vooral snel rondgaan. Wat doe je vóór je iets doorstuurt?",
+      tip:"Een goede vuistregel: hoe harder een bericht roept dat je het moet delen, hoe meer reden om eerst te controleren.",
+      antwoorden:[
+        { tekst:"Ik stuur het door naar de familiegroep. Baat het niet, dan schaadt het niet.", juist:false,
+          uitleg:"Valse gezondheidsinfo kan wél schaden. Mensen stellen soms echte zorg uit omdat ze zo'n bericht geloven. Niet doorsturen dus." },
+        { tekst:"Ik stuur het niet door en controleer het eerst, bijvoorbeeld bij Gezondheid en Wetenschap of VRT NWS.", juist:true,
+          uitleg:"Sterk! Eerst controleren, dan pas eventueel delen. Zo help je mee om valse informatie te stoppen in plaats van te verspreiden." },
+        { tekst:"Ik vraag aan AI of het waar is en stuur het door als AI ja zegt.", juist:false,
+          uitleg:"AI kan helpen zoeken, maar kan ook fout zitten. Voor gezondheidsinfo ga je naar betrouwbare bronnen of je huisarts." }
+      ]
+    },
+    {
+      situatie:"Je ziet een video van een bekende Vlaamse presentator. Hij zegt: \u201cIk verdubbel jouw geld! Klik snel op deze link!\u201d Zijn mond beweegt net iets vreemd en zijn stem klinkt vlak.",
+      vraag:"Wat denk je hiervan?",
+      competentie:"kritisch",
+      hint:"Met AI kan je iemands gezicht en stem nadoen in video. Dat heet een deepfake. Waar herken je die aan?",
+      tip:"Deepfakes herken je vaak aan: vreemde mondbewegingen, vlakke stem, rare overgangen, en vooral aan een boodschap die te mooi is om waar te zijn.",
+      antwoorden:[
+        { tekst:"Het is een bekend gezicht op tv, dus het zal wel betrouwbaar zijn. Ik klik op de link.", juist:false,
+          uitleg:"Pas op! Dit is bijna zeker een deepfake: een nepvideo gemaakt met AI. Oplichters misbruiken bekende gezichten om je te laten klikken." },
+        { tekst:"Dit lijkt me een deepfake: een nepvideo gemaakt met AI. Ik klik niet en meld de video.", juist:true,
+          uitleg:"Helemaal juist! De vreemde mond, de vlakke stem en de te mooie belofte zijn typische signalen van een deepfake. Niet klikken en melden." },
+        { tekst:"Ik klik op de link, maar alleen om te kijken. Kijken kan toch geen kwaad?", juist:false,
+          uitleg:"Zo'n link kan naar een valse website leiden die je gegevens steelt. Niet klikken is de enige veilige keuze." }
+      ]
+    }
+  ]
+},
+{
+  dag:"Vrijdag", icoon:"🔒", titel:"Veilig online",
+  intro:"Vandaag krijg je verdachte berichten binnen. Oplichters gebruiken steeds vaker AI om hun trucs echter te laten lijken. Tijd om je te wapenen.",
+  badge:{ naam:"Veilig Online", icoon:"🛡️" },
+  reflectie:"Met wie zou jij afspraken kunnen maken over een codewoord of over hoe jullie elkaar bereiken bij twijfel?",
+  vragen:[
+    {
+      situatie:"Je krijgt een e-mail die van je bank lijkt te komen: \u201cUw rekening wordt geblokkeerd. Klik hier en geef uw pincode in om dit te voorkomen.\u201d De mail ziet er perfect verzorgd uit.",
+      vraag:"Wat doe je?",
+      competentie:"veilig",
+      hint:"Wat zou een echte bank nooit vragen via e-mail?",
+      tip:"Een bank vraagt nooit je pincode of codes via e-mail, sms of telefoon. Twijfel je? Bel zelf naar het nummer op je bankkaart.",
+      antwoorden:[
+        { tekst:"Ik klik snel op de link. Ik wil niet dat mijn rekening geblokkeerd wordt.", juist:false,
+          uitleg:"Dit is phishing: een valse mail om je codes te stelen. Oplichters gebruiken AI om zulke mails foutloos en echt te laten lijken. Net die haast is hun truc." },
+        { tekst:"Ik klik niet. Een bank vraagt nooit een pincode via e-mail. Bij twijfel bel ik zelf naar mijn bank.", juist:true,
+          uitleg:"Precies! Een echte bank vraagt nooit codes via e-mail. Zelf naar je bank bellen, via het nummer op je kaart, is altijd veilig." },
+        { tekst:"Ik antwoord op de mail en vraag of het echt van de bank komt.", juist:false,
+          uitleg:"Dan antwoordt de oplichter gewoon \u201cja\u201d. Reageer nooit op verdachte mails. Verwijder ze of meld ze bij verdacht@safeonweb.be." }
+      ]
+    },
+    {
+      situatie:"Je hebt al een tijdje last van je maag en wil aan een AI-chatbot vragen wat het kan zijn. Je twijfelt wat je in je vraag zet.",
+      vraag:"Welke informatie deel je in je vraag?",
+      competentie:"veilig",
+      hint:"Voor een goed antwoord heeft AI je klachten nodig, niet je identiteit.",
+      tip:"Beschrijf je situatie zonder naam, adres of rijksregisternummer. En onthoud: bij echte gezondheidszorgen ga je naar de huisarts. AI vervangt geen dokter.",
+      antwoorden:[
+        { tekst:"Ik geef mijn volledige naam, mijn adres en mijn rijksregisternummer, dan kan AI mij beter helpen.", juist:false,
+          uitleg:"AI heeft die gegevens helemaal niet nodig. Hoe minder persoonlijke informatie je deelt, hoe veiliger. Beschrijf alleen je klachten." },
+        { tekst:"Ik beschrijf alleen mijn klachten, zonder naam of andere persoonlijke gegevens. Voor echte zorgen ga ik naar de huisarts.", juist:true,
+          uitleg:"Heel verstandig! Je klachten beschrijven volstaat. En je houdt het juiste in gedachten: AI kan informatie geven, maar een diagnose stelt de dokter." },
+        { tekst:"Ik durf niets te vragen. Over gezondheid mag je AI nooit iets vragen.", juist:false,
+          uitleg:"Algemene informatie vragen mag gerust, zolang je geen persoonlijke gegevens deelt. Voor een diagnose ga je wel altijd naar de huisarts." }
+      ]
+    },
+    {
+      situatie:"De telefoon rinkelt. Je hoort de stem van je kleinzoon, in paniek: \u201cIk heb een ongeluk gehad, stuur snel 500 euro!\u201d Het klinkt écht als zijn stem. Toch knaagt er iets.",
+      vraag:"Wat doe je?",
+      competentie:"veilig",
+      hint:"Met AI kan een stem worden nagemaakt met maar een paar seconden geluid. Hoe kan je zeker weten dat het je kleinzoon is?",
+      tip:"Spreek met je familie een codewoord af voor noodgevallen. En bel bij twijfel altijd zelf terug naar het nummer dat je kent.",
+      antwoorden:[
+        { tekst:"Ik stuur meteen het geld. Het is duidelijk zijn stem, dus het is echt.", juist:false,
+          uitleg:"Met AI kan een stem worden nagemaakt met maar enkele seconden geluid, bijvoorbeeld uit een filmpje online. De stem alleen bewijst dus niets meer." },
+        { tekst:"Ik hang op en bel zelf naar het nummer van mijn kleinzoon dat ik ken. Zo controleer ik of het echt is.", juist:true,
+          uitleg:"Heel sterk! Zelf terugbellen naar het nummer dat jij kent, is de beste controle. Oplichters rekenen op paniek en haast. Jij houdt het hoofd koel." },
+        { tekst:"Ik vraag aan de beller: \u201cBen jij het echt?\u201d Als hij ja zegt, stuur ik het geld.", juist:false,
+          uitleg:"Een oplichter zegt natuurlijk gewoon ja. Hang op en bel zelf naar het vertrouwde nummer. Dat is de enige echte controle." }
+      ]
+    }
+  ]
+}
+];
+
+/* =====================================================
+   SPELTOESTAND
+===================================================== */
+const PUNTEN_EERSTE = 10, PUNTEN_TWEEDE = 5, PUNTEN_LATER = 2;
+
+const spel = {
+  naam:"",
+  rustig:false,           // rustig tempo: hint wordt automatisch getoond
+  level:0,
+  vraagIndex:0,
+  pogingen:0,
+  totaal:0,
+  maxTotaal:0,
+  badges:[],
+  comp:{},                // per competentie: {behaald, max}
+  eersteKeerGoed:0,
+  eersteKeerGoedDag:0,
+  aantalVragen:0
+};
+Object.keys(COMPETENTIES).forEach(k => spel.comp[k] = { behaald:0, max:0 });
+LEVELS.forEach(l => l.vragen.forEach(v => {
+  spel.maxTotaal += PUNTEN_EERSTE;
+  spel.comp[v.competentie].max += PUNTEN_EERSTE;
+  spel.aantalVragen++;
+}));
+
+const scherm = document.getElementById("scherm");
+const weekpad = document.getElementById("weekpad");
+
+/* =====================================================
+   WEEKPAD
+===================================================== */
+function tekenWeekpad(){
+  const rij = document.getElementById("padRij");
+  rij.innerHTML = "";
+  LEVELS.forEach((l, i) => {
+    const halte = document.createElement("div");
+    halte.className = "halte" + (i < spel.level ? " klaar" : i === spel.level ? " actief" : "");
+    halte.innerHTML = `<div class="bol">${i < spel.level ? "✔️" : l.icoon}</div><div class="dagnaam">${l.dag.slice(0,2)}</div>`;
+    rij.appendChild(halte);
+    if(i < LEVELS.length - 1){
+      const pad = document.createElement("div");
+      pad.className = "tussenpad";
+      let vul = 0;
+      if(i < spel.level) vul = 100;
+      else if(i === spel.level) vul = Math.round(spel.vraagIndex / LEVELS[i].vragen.length * 100);
+      pad.innerHTML = `<div class="vulling" style="width:${vul}%"></div>`;
+      rij.appendChild(pad);
+    }
+  });
+}
+
+/* =====================================================
+   SCHERMEN
+===================================================== */
+function toonStart(){
+  weekpad.classList.add("verborgen");
+  scherm.innerHTML = `
+    <div class="kaart start-held">
+      <div class="groot-icoon">🧭</div>
+      <h1>AI Wegwijs</h1>
+      <p class="onder">Een week op stap met AI. Vijf dagen, vijf herkenbare situaties uit het dagelijks leven.
+      Jij maakt de keuzes. Onderweg leer je wat AI voor jou kan doen, en waar je beter oplet.
+      Fouten maken mag: daar leer je van.</p>
+
+      <div class="veld">
+        <label for="naamveld">Hoe mogen we je noemen? (voor je certificaat)</label>
+        <input id="naamveld" type="text" maxlength="40" placeholder="Bijvoorbeeld: Rita" autocomplete="off">
+      </div>
+
+      <div class="veld">
+        <label>Hoe wil je spelen?</label>
+        <div class="tempo">
+          <button id="tempoNormaal" aria-pressed="true"><strong>Zelf proberen</strong>Je kan altijd zelf een tip vragen als je twijfelt</button>
+          <button id="tempoRustig" aria-pressed="false"><strong>Met extra hulp</strong>De coach geeft bij elke vraag meteen een tip mee</button>
+        </div>
+      </div>
+
+      <button class="hoofdknop" id="startKnop">Start je week &nbsp;→</button>
+      <p class="klein-grijs">Je hebt geen account nodig. Er wordt niets bewaard of doorgestuurd.</p>
+    </div>`;
+
+  const nKnop = document.getElementById("tempoNormaal");
+  const rKnop = document.getElementById("tempoRustig");
+  nKnop.onclick = () => { spel.rustig = false; nKnop.setAttribute("aria-pressed","true"); rKnop.setAttribute("aria-pressed","false"); };
+  rKnop.onclick = () => { spel.rustig = true; rKnop.setAttribute("aria-pressed","true"); nKnop.setAttribute("aria-pressed","false"); };
+  document.getElementById("startKnop").onclick = () => {
+    spel.naam = document.getElementById("naamveld").value.trim() || "Speler";
+    toonDagIntro();
+  };
+}
+
+function toonDagIntro(){
+  weekpad.classList.remove("verborgen");
+  tekenWeekpad();
+  const l = LEVELS[spel.level];
+  scherm.innerHTML = `
+    <div class="kaart dag-intro">
+      <div class="dagkop">
+        <div class="icoon groot-icoon">${l.icoon}</div>
+        <div>
+          <div class="sub">${l.dag} · Dag ${spel.level+1} van ${LEVELS.length}</div>
+          <h2>${l.titel}</h2>
+        </div>
+      </div>
+      <p>${l.intro}</p>
+      <button class="hoofdknop" id="verderKnop">Aan de slag &nbsp;→</button>
+    </div>`;
+  document.getElementById("verderKnop").onclick = toonVraag;
+}
+
+function toonVraag(){
+  tekenWeekpad();
+  const l = LEVELS[spel.level];
+  const v = l.vragen[spel.vraagIndex];
+  spel.pogingen = 0;
+  const c = COMPETENTIES[v.competentie];
+
+  scherm.innerHTML = `
+    <div class="kaart">
+      <div class="dagkop">
+        <div class="icoon">${l.icoon}</div>
+        <div>
+          <div class="sub">${l.dag} · Vraag ${spel.vraagIndex+1} van ${l.vragen.length} · ${c.icoon} ${c.naam}</div>
+          <h2>${l.titel}</h2>
+        </div>
+      </div>
+      <div class="situatie">${v.situatie}</div>
+      <p class="vraag">${v.vraag}</p>
+      <div class="antwoorden" id="antwoorden"></div>
+      <div id="coachPlek"></div>
+      <button class="hintknop" id="hintKnop">💡 Vraag een tip aan de coach</button>
+    </div>`;
+
+  const blok = document.getElementById("antwoorden");
+  const letters = ["A","B","C","D"];
+  v.antwoorden.forEach((a, i) => {
+    const knop = document.createElement("button");
+    knop.className = "antwoord";
+    knop.innerHTML = `<span class="letter">${letters[i]}</span><span>${a.tekst}</span>`;
+    knop.onclick = () => kies(knop, a, v, l);
+    blok.appendChild(knop);
+  });
+
+  const hintKnop = document.getElementById("hintKnop");
+  hintKnop.onclick = () => { toonCoach("helpt", "Tip van de coach", v.hint); hintKnop.classList.add("verborgen"); };
+  if(spel.rustig){ hintKnop.click(); }
+}
+
+function toonCoach(soort, kop, tekst, tip){
+  const plek = document.getElementById("coachPlek");
+  plek.innerHTML = `
+    <div class="coach ${soort}" role="status">
+      <div class="gezicht">${soort === "prijst" ? "😊" : "🤖"}</div>
+      <div>
+        <div class="naam">${kop}</div>
+        <div>${tekst}</div>
+        ${tip ? `<div class="tip-echt"><strong>Tip voor het echte leven:</strong> ${tip}</div>` : ""}
+      </div>
+    </div>`;
+}
+
+function kies(knop, antwoord, vraag, level){
+  if(antwoord.juist){
+    knop.classList.add("juist");
+    document.querySelectorAll(".antwoord").forEach(b => b.disabled = true);
+    document.getElementById("hintKnop")?.classList.add("verborgen");
+
+    const punten = spel.pogingen === 0 ? PUNTEN_EERSTE : spel.pogingen === 1 ? PUNTEN_TWEEDE : PUNTEN_LATER;
+    spel.totaal += punten;
+    spel.comp[vraag.competentie].behaald += punten;
+    if(spel.pogingen === 0){ spel.eersteKeerGoed++; spel.eersteKeerGoedDag++; }
+    toonPunten(punten);
+
+    const lofEerste = ["Goed gezien!", "In één keer juist, knap!", "Sterk gekozen!", "Helemaal juist!"];
+    const lofLater  = ["Goed zo, nu zit het juist!", "Mooi, je hebt het gevonden!", "Zo leer je het: proberen en bijsturen!"];
+    const lof = spel.pogingen === 0
+      ? lofEerste[Math.floor(Math.random()*lofEerste.length)]
+      : lofLater[Math.floor(Math.random()*lofLater.length)];
+    toonCoach("prijst", "De AI Coach · " + lof, antwoord.uitleg, vraag.tip);
+
+    const verder = document.createElement("button");
+    verder.className = "hoofdknop";
+    verder.innerHTML = "Reis verder &nbsp;→";
+    verder.onclick = volgende;
+    document.getElementById("coachPlek").appendChild(verder);
+    verder.focus();
+  } else {
+    spel.pogingen++;
+    knop.classList.add("fout");
+    knop.disabled = true;
+    toonCoach("helpt", "De AI Coach helpt je", antwoord.uitleg + "<br><br><strong>Hint:</strong> " + vraag.hint + "<br>Probeer nog eens, je kan dit!");
+  }
+}
+
+function toonPunten(punten){
+  const m = document.createElement("div");
+  m.className = "puntenmelding";
+  m.textContent = "+" + punten + " punten";
+  document.body.appendChild(m);
+  setTimeout(() => m.remove(), 1800);
+}
+
+function volgende(){
+  const l = LEVELS[spel.level];
+  spel.vraagIndex++;
+  if(spel.vraagIndex < l.vragen.length){
+    toonVraag();
+  } else {
+    spel.badges.push(l.badge);
+    toonBadge(l);
+  }
+}
+
+function toonBadge(l){
+  spel.vraagIndex = l.vragen.length;
+  tekenWeekpad();
+  const laatste = spel.level === LEVELS.length - 1;
+  const dagScore = spel.eersteKeerGoedDag;
+  const dagTotaal = l.vragen.length;
+  const dagZin = dagScore === dagTotaal
+    ? `Alle ${dagTotaal} vragen in één keer juist. Indrukwekkend!`
+    : dagScore > 0
+      ? `${dagScore} van de ${dagTotaal} vragen had je in één keer juist.`
+      : `Je hebt alle vragen opgelost, ook al moest je soms even zoeken. Zo leer je het meest!`;
+  const tipsLijst = l.vragen.map(v => `<li style="margin-bottom:.4rem;">${v.tip}</li>`).join("");
+
+  scherm.innerHTML = `
+    <div class="kaart badgemoment">
+      <div class="sub" style="font-weight:800;color:#6f6a5f;text-transform:uppercase;letter-spacing:.6px;font-size:.85rem;">${l.dag} afgerond</div>
+      <div class="badge-schild"><div class="b-icoon">${l.badge.icoon}</div></div>
+      <div class="badge-naam">Badge behaald: ${l.badge.naam}</div>
+      <p style="margin-top:.6rem;">Mooi zo, ${spel.naam}! ${dagZin}</p>
+      <div class="reflectie" style="text-align:left;">
+        <div class="r-kop">📌 Wat je vandaag meeneemt</div>
+        <ul style="padding-left:1.2rem;margin-top:.3rem;">${tipsLijst}</ul>
+      </div>
+      <div class="reflectie">
+        <div class="r-kop">🤔 Even nadenken</div>
+        ${l.reflectie}<br>
+        <span class="klein-grijs">Je hoeft niets te typen. Even nadenken is genoeg.</span>
+      </div>
+      <button class="hoofdknop amber" id="verderKnop">${laatste ? "Bekijk je resultaat &nbsp;🎉" : "Naar " + LEVELS[spel.level+1].dag.toLowerCase() + " &nbsp;→"}</button>
+    </div>`;
+  document.getElementById("verderKnop").onclick = () => {
+    spel.level++;
+    spel.vraagIndex = 0;
+    spel.eersteKeerGoedDag = 0;
+    if(laatste) toonEinde(); else toonDagIntro();
+  };
+}
+
+function toonEinde(){
+  tekenWeekpad();
+  const procent = Math.round(spel.totaal / spel.maxTotaal * 100);
+  let oordeel;
+  if(procent >= 85) oordeel = "Schitterend! Jij gebruikt AI slim, kritisch en veilig.";
+  else if(procent >= 60) oordeel = "Goed gedaan! Je hebt een stevige basis. Blijf controleren en doorvragen.";
+  else oordeel = "Je hebt de hele week volgehouden, knap! Speel gerust nog eens om de tips beter te onthouden.";
+
+  const balken = Object.entries(COMPETENTIES).map(([k, c]) => {
+    const s = spel.comp[k];
+    const p = s.max ? Math.round(s.behaald / s.max * 100) : 0;
+    return `<div class="scorebalk">
+      <div class="s-label"><span>${c.icoon} ${c.naam}</span><span>${p}%</span></div>
+      <div class="s-spoor"><div class="s-vulling" data-breedte="${p}"></div></div>
+    </div>`;
+  }).join("");
+
+  const badgeRij = LEVELS.map(l => {
+    const heeft = spel.badges.some(b => b.naam === l.badge.naam);
+    return `<div class="mini-badge ${heeft ? "" : "niet"}">${l.badge.icoon} ${l.badge.naam}</div>`;
+  }).join("");
+
+  const datum = new Date().toLocaleDateString("nl-BE", { day:"numeric", month:"long", year:"numeric" });
+
+  scherm.innerHTML = `
+    <div class="kaart">
+      <div class="start-held" style="padding-top:.4rem;">
+        <div class="groot-icoon">🎉</div>
+        <h1 style="font-size:1.6rem;">Je week zit erop, ${spel.naam}!</h1>
+        <p class="onder">Je behaalde <strong>${spel.totaal} van ${spel.maxTotaal} punten</strong> (${procent}%).<br>${oordeel}</p>
+      </div>
+
+      <div class="scorebalken">${balken}</div>
+      <div class="badge-rij">${badgeRij}</div>
+
+      <div class="reflectie">
+        <div class="r-kop">🧭 Onthoud deze vijf regels</div>
+        1. Vraag AI gerust om uitleg in eenvoudige taal<br>
+        2. Geef duidelijke vragen mét details, en vraag door<br>
+        3. Controleer belangrijke informatie altijd in de echte bron<br>
+        4. Deel nooit persoonlijke gegevens zoals codes of je rijksregisternummer<br>
+        5. Te mooi om waar te zijn? Dan is het dat meestal ook
+      </div>
+
+      <div class="certificaat" id="certificaat">
+        <div class="c-kop">Certificaat</div>
+        <h3>AI Wegwijs</h3>
+        <p>wordt uitgereikt aan</p>
+        <div class="c-naam">${spel.naam}</div>
+        <div class="c-lijn"></div>
+        <p class="c-detail">die een volledige week AI leerde gebruiken in het dagelijks leven<br>
+        en daarbij ${spel.badges.length} van ${LEVELS.length} badges behaalde.</p>
+        <p class="c-detail" style="margin-top:.8rem;">Score: ${spel.totaal}/${spel.maxTotaal} (${procent}%) · ${datum}</p>
+      </div>
+
+      <div style="display:flex;gap:.8rem;flex-wrap:wrap;">
+        <button class="hoofdknop" onclick="window.print()">🖨️ Druk je certificaat af</button>
+        <button class="hoofdknop amber" id="opnieuwKnop">↺ Speel nog eens</button>
+      </div>
+      <p class="klein-grijs">Tip: speel later nog eens en probeer alle vragen in één keer juist te hebben.</p>
+    </div>`;
+
+  requestAnimationFrame(() => {
+    document.querySelectorAll(".s-vulling").forEach(b => b.style.width = b.dataset.breedte + "%");
+  });
+  document.getElementById("opnieuwKnop").onclick = () => location.reload();
+}
+
+/* =====================================================
+   TEKSTGROOTTE
+===================================================== */
+document.querySelectorAll(".tekstknoppen button").forEach(knop => {
+  knop.onclick = () => {
+    document.body.dataset.tekst = knop.dataset.grootte;
+    document.querySelectorAll(".tekstknoppen button").forEach(b => b.setAttribute("aria-pressed", b === knop ? "true" : "false"));
+  };
+});
+
+toonStart();
+</script>
+</body>
+</html>
